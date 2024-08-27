@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import request from "request";
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PAGE_ACCESS_TOKEN = process.env.MY_VERIFY_TOKEN;
@@ -32,14 +33,22 @@ const postWebhook = (req, res) => {
 
     if (data.object === 'page') {
         data.entry.forEach(entry => {
-            if (entry.messaging && entry.messaging.length > 0) {
-                // Gets the body of the webhook event
-                let webhook_event = entry.messaging[0];
-                console.log(webhook_event);
+            
+            // Gets the body of the webhook event
+            let webhook_event = entry.messaging[0];
+            console.log(webhook_event);
 
-                // Get the sender PSID
-                let sender_psid = webhook_event.sender.id;
-                console.log('Sender PSID: ' + sender_psid);
+
+            // Get the sender PSID
+            let sender_psid = webhook_event.sender.id;
+            console.log('Sender PSID: ' + sender_psid);
+
+            // Check if the event is a message or postback and
+            // pass the event to the appropriate handler function
+            if (webhook_event.message) {
+                handleMessage(sender_psid, webhook_event.message);
+            } else if (webhook_event.postback) {
+                handlePostback(sender_psid, webhook_event.postback);
             }
         });
 
@@ -48,5 +57,48 @@ const postWebhook = (req, res) => {
         res.sendStatus(404);
     }
 };
+
+function handleMessage(sender_psid, received_message) {
+
+    let response;
+
+    // Check if the message contains text
+    if (received_message.text) {
+
+        // Create the payload for a basic text message
+        response = {
+            "text": `Bạn đã gửi : "${received_message.text}". Now send me an image!`
+        }
+    }
+
+    // Sends the response message
+    callSendAPI(sender_psid, response);
+}
+
+//
+ 
+function callSendAPI(sender_psid, response) {
+    // Construct the message body
+    let request_body = {
+        "recipient": {
+            "id": sender_psid
+        },
+        "message": response
+    }
+
+    // Send the HTTP request to the Messenger Platform
+    request({
+        "uri": "https://graph.facebook.com/v2.6/me/messages",
+        "qs": { "access_token": PAGE_ACCESS_TOKEN },
+        "method": "POST",
+        "json": request_body
+    }, (err, res, body) => {
+        if (!err) {
+            console.log('message sent!')
+        } else {
+            console.error("Unable to send message:" + err);
+        }
+    });
+}
 
 export { getHomePage, getWebhook, postWebhook };
