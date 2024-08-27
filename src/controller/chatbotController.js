@@ -22,6 +22,8 @@ const getWebhook = (req, res) => {
         } else {
             res.sendStatus(403);
         }
+    } else {
+        res.sendStatus(400); // Bad Request if mode or token are missing
     }
 };
 
@@ -30,14 +32,15 @@ const postWebhook = (req, res) => {
 
     if (data.object === 'page') {
         data.entry.forEach(entry => {
-            
-            // Gets the body of the webhook event
-            let webhook_event = entry.messaging[0];
-            console.log(webhook_event);
+            if (entry.messaging && entry.messaging.length > 0) {
+                // Gets the body of the webhook event
+                let webhook_event = entry.messaging[0];
+                console.log(webhook_event);
 
-            // Get the sender PSID
-            let sender_psid = webhook_event.sender.id;
-            console.log('Sender PSID: ' + sender_psid);
+                // Get the sender PSID
+                let sender_psid = webhook_event.sender.id;
+                console.log('Sender PSID: ' + sender_psid);
+            }
         });
 
         res.status(200).send('EVENT_RECEIVED');
