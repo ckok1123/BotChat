@@ -1,7 +1,11 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
 
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+dotenv.config();
+
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;  // Sử dụng VERIFY_TOKEN cho việc xác thực webhook
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;  // Sử dụng PAGE_ACCESS_TOKEN cho API
+
 
 const getHomePage = (req, res) => {
     return res.send("Xin chào, chào mừng bạn đến với chatbot!");
