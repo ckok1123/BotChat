@@ -1,8 +1,7 @@
-import crypto from 'crypto';
-import request from "request";
+import axios from 'axios';
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const PAGE_ACCESS_TOKEN = process.env.MY_VERIFY_TOKEN;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 
 const getHomePage = (req, res) => {
     return res.send("Xin chào, chào mừng bạn đến với chatbot!");
@@ -13,92 +12,81 @@ const getWebhook = (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    console.log(`Received token: ${token}`);
-    console.log(`Expected token: ${VERIFY_TOKEN}`);
-
     if (mode && token) {
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
             console.log('WEBHOOK_VERIFIED');
-            res.status(200).send(challenge);
+            return res.status(200).send(challenge);
         } else {
-            res.sendStatus(403);
+            return res.sendStatus(403); // Forbidden
         }
     } else {
-        res.sendStatus(400); // Bad Request if mode or token are missing
+        return res.sendStatus(400); // Bad Request
     }
 };
 
-const postWebhook = (req, res) => {
+const postWebhook = async (req, res) => {
     const data = req.body;
 
     if (data.object === 'page') {
-        data.entry.forEach(entry => {
-            
-            // Gets the body of the webhook event
-            let webhook_event = entry.messaging[0];
-            console.log(webhook_event);
-
-
-            // Get the sender PSID
-            let sender_psid = webhook_event.sender.id;
-            console.log('Sender PSID: ' + sender_psid);
-
-            // Check if the event is a message or postback and
-            // pass the event to the appropriate handler function
-            if (webhook_event.message) {
-                handleMessage(sender_psid, webhook_event.message);
-            } else if (webhook_event.postback) {
-                handlePostback(sender_psid, webhook_event.postback);
+        try {
+            for (const entry of data.entry) {
+                for (const messagingEvent of entry.messaging) {
+                    const senderPsid = messagingEvent.sender.id;
+                    if (messagingEvent.message) {
+                        await handleMessage(senderPsid, messagingEvent.message);
+                    } else if (messagingEvent.postback) {
+                        await handlePostback(senderPsid, messagingEvent.postback);
+                    }
+                }
             }
-        });
-
-        res.status(200).send('EVENT_RECEIVED');
+            return res.status(200).send('EVENT_RECEIVED');
+        } catch (error) {
+            console.error('Error handling webhook event:', error);
+            return res.sendStatus(500); // Internal Server Error
+        }
     } else {
-        res.sendStatus(404);
+        return res.sendStatus(404); // Not Found
     }
 };
 
-function handleMessage(sender_psid, received_message) {
-
+const handleMessage = async (senderPsid, receivedMessage) => {
     let response;
-
-    // Check if the message contains text
-    if (received_message.text) {
-
-        // Create the payload for a basic text message
+    if (receivedMessage.text) {
         response = {
-            "text": `Bạn đã gửi : "${received_message.text}". Now send me an image!`
-        }
+            text: `Bạn đã gửi: "${receivedMessage.text}".`
+        };
+    } else if (receivedMessage.attachments) {
+        response = {
+            text: "Tôi đã nhận được một tệp đính kèm!"
+        };
     }
+    await callSendAPI(senderPsid, response);
+};
 
-    // Sends the response message
-    callSendAPI(sender_psid, response);
-}
+const handlePostback = async (senderPsid, postback) => {
+    // Xử lý postback nếu cần
+    const response = {
+        text: "Postback nhận được!"
+    };
+    await callSendAPI(senderPsid, response);
+};
 
-//
- 
-function callSendAPI(sender_psid, response) {
-    // Construct the message body
-    let request_body = {
-        "recipient": {
-            "id": sender_psid
-        },
-        "message": response
+const callSendAPI = async (senderPsid, response) => {
+    try {
+        await axios.post(`https://graph.facebook.com/v12.0/me/messages`, {
+            recipient: {
+                id: senderPsid
+            },
+            message: response
+        }, {
+            params: {
+                access_token: PAGE_ACCESS_TOKEN
+            }
+        });
+        console.log('Message sent!');
+    } catch (error) {
+        console.error('Unable to send message:', error);
     }
-
-    // Send the HTTP request to the Messenger Platform
-    request({
-        "uri": "https://graph.facebook.com/v2.6/me/messages",
-        "qs": { "access_token": PAGE_ACCESS_TOKEN },
-        "method": "POST",
-        "json": request_body
-    }, (err, res, body) => {
-        if (!err) {
-            console.log('message sent!')
-        } else {
-            console.error("Unable to send message:" + err);
-        }
-    });
-}
+};
 
 export { getHomePage, getWebhook, postWebhook };

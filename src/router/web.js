@@ -3,7 +3,7 @@ import { getHomePage, getWebhook, postWebhook } from '../controller/chatbotContr
 
 const router = express.Router();
 
-const initWebRouters = (app) => {
+const initWebRouter = (app) => {
     router.get("/", getHomePage);
     router.get("/webhook", getWebhook);
     router.post("/webhook", postWebhook);
@@ -11,4 +11,4 @@ const initWebRouters = (app) => {
     return app.use("/", router);
 };
 
-export default initWebRouters;
+export default initWebRouter;
