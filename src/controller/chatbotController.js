@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from 'axios';  // Đảm bảo axios chỉ được nhập khẩu một lần
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -94,21 +94,34 @@ const handlePostback = async (senderPsid, postback) => {
 
 // Gửi API
 const callSendAPI = async (senderPsid, response) => {
-    try {
-        const res = await axios.post(`https://graph.facebook.com/v12.0/me/messages`, {
-            recipient: {
-                id: senderPsid
-            },
-            message: response
-        }, {
-            params: {
-                access_token: PAGE_ACCESS_TOKEN
-            }
-        });
-        console.log('Message sent!', res.data);
-    } catch (error) {
-        console.error('Unable to send message:', error);
+  // Xây dựng đối tượng tin nhắn
+  const requestBody = {
+    recipient: {
+      id: senderPsid
+    },
+    message: response
+  };
+
+  try {
+    // Gửi yêu cầu HTTP POST đến Messenger Platform
+    const res = await axios.post('https://graph.facebook.com/v20.0/me/messages', requestBody, {
+      params: {
+        access_token: PAGE_ACCESS_TOKEN
+      },
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Kiểm tra phản hồi thành công
+    if (res.status === 200) {
+      console.log('Message sent successfully:', res.data);
+    } else {
+      console.error('Failed to send message. Status:', res.status, 'Response:', res.data);
     }
+  } catch (error) {
+    console.error('Unable to send message:', error.response ? error.response.data : error.message);
+  }
 };
 
-export { getHomePage, getWebhook, postWebhook };
+export { getHomePage, getWebhook, postWebhook, handlePostback, handleMessage, callSendAPI };
