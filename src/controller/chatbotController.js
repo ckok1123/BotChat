@@ -18,7 +18,7 @@ const getWebhook = (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    console.log(`GET /webhooks - mode: ${mode}, token: ${token}, challenge: ${challenge}`);
+    console.log(`GET /webhook - mode: ${mode}, token: ${token}, challenge: ${challenge}`);
 
     if (mode && token) {
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
@@ -38,7 +38,7 @@ const getWebhook = (req, res) => {
 const postWebhook = async (req, res) => {
     const data = req.body;
 
-    console.log('POST /webhooks - Received webhook data:', JSON.stringify(data, null, 2));
+    console.log('POST /webhook - Received webhook data:', JSON.stringify(data, null, 2));
 
     if (data.object === 'page') {
         try {
