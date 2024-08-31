@@ -1,10 +1,10 @@
 import express from 'express';
-import viewEngine from './config/viewEngine.js'; // Đảm bảo thêm .js vào đường dẫn
-import initWebRouter from './router/web.js'; // Đảm bảo thêm .js vào đường dẫn
+import viewEngine from './config/viewEngine.js';
+import initWebRouter from './router/web.js';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 
-dotenv.config(); // Đảm bảo rằng biến môi trường được nạp
+dotenv.config();
 
 const app = express();
 
@@ -18,8 +18,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Init web route
 initWebRouter(app);
 
-const port = process.env.PORT || 8080; // Sử dụng biến môi trường PORT
+const port = process.env.PORT || 8080;
 
-app.listen(port, () => {
-    console.log(`Chat bot đang chạy ở cổng: ${port}`);
-});
+app.listen(port, () => console.log(`Chat bot đang chạy ở cổng: ${port}`));

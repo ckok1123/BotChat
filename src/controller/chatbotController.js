@@ -1,57 +1,36 @@
-import axios from 'axios';  // Đảm bảo axios chỉ được nhập khẩu một lần
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;  // Sử dụng VERIFY_TOKEN cho việc xác thực webhook
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;  // Sử dụng PAGE_ACCESS_TOKEN cho API
+const { VERIFY_TOKEN, PAGE_ACCESS_TOKEN } = process.env;
 
 // Trang chủ
-const getHomePage = (req, res) => {
-    console.log("GET / - Home page request received");
-    return res.send("Xin chào, chào mừng bạn đến với chatbot!");
-};
+const getHomePage = (req, res) => res.send("Xin chào, chào mừng bạn đến với chatbot!");
 
 // Xác thực webhook
 const getWebhook = (req, res) => {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
+    const { mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
 
-    console.log(`GET /webhook - mode: ${mode}, token: ${token}, challenge: ${challenge}`);
-
-    if (mode && token) {
-        if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-            console.log('WEBHOOK_VERIFIED');
-            return res.status(200).send(challenge);
-        } else {
-            console.log('Webhook verification failed');
-            return res.sendStatus(403); // Forbidden
-        }
-    } else {
-        console.log('Invalid query parameters');
-        return res.sendStatus(400); // Bad Request
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        return res.status(200).send(challenge);
     }
+    return res.sendStatus(mode ? 403 : 400);
 };
 
 // Xử lý webhook POST request
 const postWebhook = async (req, res) => {
-    const data = req.body;
+    const { object, entry } = req.body;
 
-    console.log('POST /webhook - Received webhook data:', JSON.stringify(data, null, 2));
-
-    if (data.object === 'page') {
+    if (object === 'page') {
         try {
-            for (const entry of data.entry) {
-                for (const messagingEvent of entry.messaging) {
+            for (const { messaging } of entry) {
+                for (const messagingEvent of messaging) {
                     const senderPsid = messagingEvent.sender.id;
-                    console.log(`Processing messaging event from sender PSID: ${senderPsid}`);
 
                     if (messagingEvent.message) {
-                        console.log('Received message event:', JSON.stringify(messagingEvent.message, null, 2));
                         await handleMessage(senderPsid, messagingEvent.message);
                     } else if (messagingEvent.postback) {
-                        console.log('Received postback event:', JSON.stringify(messagingEvent.postback, null, 2));
                         await handlePostback(senderPsid, messagingEvent.postback);
                     }
                 }
@@ -59,69 +38,48 @@ const postWebhook = async (req, res) => {
             return res.status(200).send('EVENT_RECEIVED');
         } catch (error) {
             console.error('Error handling webhook event:', error);
-            return res.sendStatus(500); // Internal Server Error
+            return res.sendStatus(500);
         }
-    } else {
-        console.log('Invalid object type');
-        return res.sendStatus(404); // Not Found
     }
+    return res.sendStatus(404);
 };
 
 // Xử lý tin nhắn
 const handleMessage = async (senderPsid, receivedMessage) => {
-    let response;
-    if (receivedMessage.text) {
-        response = {
-            text: `Bạn đã gửi: "${receivedMessage.text}".`
-        };
-    } else if (receivedMessage.attachments) {
-        response = {
-            text: "Tôi đã nhận được một tệp đính kèm!"
-        };
-    }
-    console.log(`Sending response to PSID ${senderPsid}:`, JSON.stringify(response, null, 2));
+    const response = receivedMessage.text
+        ? { text: `Bạn đã gửi: "${receivedMessage.text}".` }
+        : { text: "Tôi đã nhận được một tệp đính kèm!" };
+
     await callSendAPI(senderPsid, response);
 };
 
 // Xử lý postback
-const handlePostback = async (senderPsid, postback) => {
-    const response = {
-        text: "Postback nhận được!"
-    };
-    console.log(`Sending postback response to PSID ${senderPsid}:`, JSON.stringify(response, null, 2));
+const handlePostback = async (senderPsid) => {
+    const response = { text: "Postback nhận được!" };
     await callSendAPI(senderPsid, response);
 };
 
-// Gửi API
+// Gửi tin nhắn qua API
 const callSendAPI = async (senderPsid, response) => {
-  // Xây dựng đối tượng tin nhắn
-  const requestBody = {
-    recipient: {
-      id: senderPsid
-    },
-    message: response
-  };
+    const requestBody = {
+        recipient: { id: senderPsid },
+        message: response
+    };
 
-  try {
-    // Gửi yêu cầu HTTP POST đến Messenger Platform
-    const res = await axios.post('https://graph.facebook.com/v20.0/me/messages', requestBody, {
-      params: {
-        access_token: PAGE_ACCESS_TOKEN
-      },
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    try {
+        const { status, data } = await axios.post('https://graph.facebook.com/v20.0/me/messages', requestBody, {
+            params: { access_token: PAGE_ACCESS_TOKEN },
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-    // Kiểm tra phản hồi thành công
-    if (res.status === 200) {
-      console.log('Message sent successfully:', res.data);
-    } else {
-      console.error('Failed to send message. Status:', res.status, 'Response:', res.data);
+        if (status === 200) {
+            console.log('Message sent successfully:', data);
+        } else {
+            console.error('Failed to send message:', status, data);
+        }
+    } catch (error) {
+        console.error('Unable to send message:', error.response?.data || error.message);
     }
-  } catch (error) {
-    console.error('Unable to send message:', error.response ? error.response.data : error.message);
-  }
 };
 
 export { getHomePage, getWebhook, postWebhook, handlePostback, handleMessage, callSendAPI };

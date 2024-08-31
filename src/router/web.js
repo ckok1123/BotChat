@@ -8,7 +8,7 @@ const initWebRouter = (app) => {
     router.get("/webhook", getWebhook);
     router.post("/webhook", postWebhook);
 
-    return app.use("/", router);
+    app.use("/", router);
 };
 
 export default initWebRouter;
